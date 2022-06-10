@@ -31,7 +31,7 @@ func currentContext(c context.Context, v interface{}) context.Context {
 func directSelector(key gval.Evaluable) plainSelector {
 	return func(c context.Context, r, v interface{}) (interface{}, error) {
 
-		e, _, err := selectValue(c, key, r, v)
+		e, _, err := selectValue(c, key, r, v, false)
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +54,7 @@ func multiSelector(keys []gval.Evaluable) ambiguousSelector {
 	}
 	return func(c context.Context, r, v interface{}, match ambiguousMatcher) {
 		for _, k := range keys {
-			e, wildcard, err := selectValue(c, k, r, v)
+			e, wildcard, err := selectValue(c, k, r, v, true)
 			if err != nil {
 				continue
 			}
@@ -63,7 +63,7 @@ func multiSelector(keys []gval.Evaluable) ambiguousSelector {
 	}
 }
 
-func selectValue(c context.Context, key gval.Evaluable, r, v interface{}) (value interface{}, jkey string, err error) {
+func selectValue(c context.Context, key gval.Evaluable, r, v interface{}, errOnMissingKey bool) (value interface{}, jkey string, err error) {
 	c = currentContext(c, v)
 	switch o := v.(type) {
 	case []interface{}:
@@ -84,7 +84,10 @@ func selectValue(c context.Context, key gval.Evaluable, r, v interface{}) (value
 		if r, ok := o[k]; ok {
 			return r, k, nil
 		}
-		return nil, "", fmt.Errorf("unknown key %s", k)
+		if errOnMissingKey {
+			return nil, "", fmt.Errorf("unknown key %s", k)
+		}
+		return "", "", nil
 
 	default:
 		return nil, "", fmt.Errorf("unsupported value type %T for select, expected map[string]interface{} or []interface{}", o)
